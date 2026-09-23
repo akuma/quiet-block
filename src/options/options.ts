@@ -332,7 +332,7 @@ async function main(): Promise<void> {
   // text area rather than stacking up another button.
   const importConfirm = document.createElement('button');
   importConfirm.type = 'button';
-  importConfirm.className = 'btn primary';
+  importConfirm.className = 'btn primary import-confirm';
   importConfirm.textContent = 'Replace my rules with this';
   importConfirm.hidden = true;
   importConfirm.addEventListener('click', () => {

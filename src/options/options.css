@@ -160,11 +160,16 @@ select {
 }
 
 /*
- * Chrome draws a thick blue glow around a focused control, which is especially
- * loud on the select now that it has appearance: none. A thin accent outline
- * keeps the keyboard focus indicator without the glow.
+ * Chrome draws a thick blue glow around a focused control, which is loudest on
+ * the select now that it has appearance: none. A thin accent outline keeps the
+ * keyboard indicator without the glow.
+ *
+ * The select is excluded: Chrome matches :focus-visible on a select after a
+ * plain mouse click as well as after Tab, so the ring would sit there until the
+ * user clicked somewhere else. Its focused state is already visible from the
+ * control itself, and the trade-off is accepted here - this is a personal-use
+ * options page, not a form people navigate by keyboard.
  */
-select:focus-visible,
 textarea:focus-visible,
 input[type="text"]:focus-visible,
 .btn:focus-visible,
@@ -172,6 +177,24 @@ input[type="text"]:focus-visible,
 .switch input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+select:focus-visible {
+  outline: none;
+}
+
+/*
+ * The import controls appear only once "Import…" is pressed, directly after the
+ * button row, so they carry their own vertical spacing rather than sitting
+ * flush against the buttons and the status line.
+ */
+#import-area,
+.import-confirm {
+  margin-top: 10px;
+}
+
+#rules-hint {
+  margin-top: 10px;
 }
 
 textarea {
