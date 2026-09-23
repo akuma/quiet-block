@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <title>QuietBlock test page</title>
+    <title>QuietBlock 测试页</title>
     <style>
       body {
         margin: 0;
         padding: 24px;
-        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 15px/1.6 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
         background: #fff;
         color: #1a1d23;
       }
-      main { max-width: 720px; margin: 0 auto; }
+      main { max-width: 760px; margin: 0 auto; }
       h1 { font-size: 20px; }
-      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #62676f; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #62676f; }
       .slot {
         height: 90px;
         margin: 12px 0;
@@ -35,33 +35,38 @@
       .log div { padding: 2px 0; }
       .ok { color: #1a7f37; }
       .blocked { color: #b3261e; }
+      .muted { color: #62676f; }
+      code { padding: 1px 4px; background: #f4f5f7; border-radius: 4px; font-size: 0.92em; }
     </style>
   </head>
   <body>
     <main>
-      <h1>QuietBlock test page</h1>
+      <h1>QuietBlock 测试页</h1>
       <p>
-        Serve this directory over HTTP (<code>python3 -m http.server</code>) and open it in the
-        browser. Content scripts only run on http(s) pages, so opening the file directly will not
-        test element hiding.
+        用 HTTP 打开本目录（<code>python3 -m http.server 8080 -d testing</code>）再访问本页。
+        content script 只会在 http(s) 页面注入，直接双击 html 文件是 <code>file://</code>，
+        测不了元素隐藏。
       </p>
 
-      <h2>1. Ad slots that should be hidden</h2>
-      <p>These use class names that EasyList's generic cosmetic rules target.</p>
-      <div class="adsbygoogle slot">ad slot: .adsbygoogle</div>
-      <div class="ad-banner slot">ad slot: .ad-banner</div>
-      <div class="advertisement slot">ad slot: .advertisement</div>
-      <div id="ad" class="slot">ad slot: #ad</div>
+      <h2>1. 应该被隐藏的广告位</h2>
+      <p>
+        这些选择器是 EasyList <em>通用</em> cosmetic 规则里真实存在的（<code>##</code> 后面那部分），
+        不是随便起的 class 名 —— 随便起的名字 EasyList 不会覆盖，测了也是白测。
+      </p>
+      <ins class="adsbygoogle slot" data-ad-client="ca-pub-0000000000000000" data-probe="ins.adsbygoogle" style="display:block">广告位：ins.adsbygoogle[data-ad-client]</ins>
+      <div id="Ad-Container" class="slot" data-probe="#Ad-Container">广告位：#Ad-Container</div>
+      <div id="ad-banner-top" class="slot" data-probe="#ad-banner-top">广告位：#ad-banner-top</div>
+      <div class="ad-unit slot" data-probe=".ad-unit">广告位：.ad-unit</div>
+      <div class="sponsored-post slot" data-probe=".sponsored-post">广告位：.sponsored-post</div>
 
-      <h2>2. Content that must survive</h2>
-      <div class="content">
-        <p>This paragraph must stay visible. If it disappears, a cosmetic rule is too broad.</p>
+      <h2>2. 必须保留的正文</h2>
+      <div class="content" data-probe="正文">
+        <p>这一段必须一直可见。如果它消失了，说明某条 cosmetic 规则太宽。</p>
       </div>
 
-      <h2>3. Requests that should be blocked</h2>
+      <h2>3. 应该被拦截的请求</h2>
       <p>
-        These point at advertising domains in the built-in starter list, so they should be blocked
-        even before EasyList finishes downloading.
+        这些指向内置 starter list 里的广告域名，所以即使 EasyList 还没下载完也应该被拦掉。
       </p>
       <img src="https://doubleclick.net/ddm/pixel.gif" alt="" width="1" height="1" />
       <img src="https://pagead2.googlesyndication.com/pagead/1x1.gif" alt="" width="1" height="1" />
@@ -70,46 +75,151 @@
       <img src="https://images.outbrain.com/pixel.gif" alt="" width="1" height="1" />
       <script src="https://popads.net/pop.js"></script>
 
-      <h2>4. A first-party request that must not be blocked</h2>
-      <img src="./ok.png" alt="a local image" width="1" height="1" onerror="this.style.display='none'" />
+      <h2>4. 本站请求，不应被拦截</h2>
+      <img src="./ok.png" alt="本地图片" width="1" height="1" onerror="this.style.display='none'" />
 
-      <h2>5. An ad inserted after page load</h2>
-      <p>Injected by JavaScript two seconds later. A stylesheet keeps applying to new nodes, so it
-        should still be hidden without any mutation observer.</p>
+      <h2>5. 页面加载后才插入的广告</h2>
+      <p>
+        由 JavaScript 在两秒后注入。stylesheet 对后续新增的节点依然生效，所以它应该照样被隐藏，
+        不需要 MutationObserver。
+      </p>
       <div id="late-slot"></div>
 
-      <h2>6. An advertising iframe</h2>
-      <iframe src="https://doubleclick.net/iframe.html" width="300" height="100" title="ad iframe"></iframe>
+      <h2>6. 广告 iframe</h2>
+      <iframe src="https://doubleclick.net/iframe.html" width="300" height="100" title="广告 iframe"></iframe>
 
-      <h2>What happened</h2>
+      <h2>检测结果</h2>
       <div class="log" id="log"></div>
     </main>
 
     <script>
-      // Report which of the advertising requests actually failed, so the page
-      // itself confirms the result rather than relying on the devtools panel.
+      /**
+       * 诊断输出。
+       *
+       * 关键：content script 是异步注入样式表的 —— 它要先读设置、再问 worker
+       * 这个标签的状态、最后读编译好的 cosmetic bundle。worker 冷启动时要几十
+       * 毫秒，比这个本地页面解析完还慢。所以必须等样式表到位再报告，否则会把
+       * 「还没注入」误判成「扩展没生效」。
+       */
       const log = document.getElementById('log');
-      const entries = performance.getEntriesByType('resource');
-      const adHosts = ['doubleclick.net', 'googlesyndication.com', 'taboola.com', 'outbrain.com', 'popads.net'];
-      const ads = entries.filter((entry) => adHosts.some((host) => entry.name.includes(host)));
+      const line = (text, kind = 'muted') => {
+        const div = document.createElement('div');
+        div.className = kind;
+        div.textContent = text;
+        log.append(div);
+      };
 
-      if (ads.length === 0) {
-        log.innerHTML += '<div class="blocked">No advertising request reached the network - they were blocked before they started.</div>';
-      } else {
-        for (const entry of ads) {
-          log.innerHTML += `<div class="blocked">request made: ${entry.name}</div>`;
+      const adHosts = [
+        'doubleclick.net', 'googlesyndication.com', 'taboola.com', 'outbrain.com', 'popads.net',
+      ];
+
+      /** 等到样式表出现，或超时。返回等待毫秒数，超时返回 null。 */
+      async function waitForStyle(timeoutMs = 2500) {
+        const started = performance.now();
+        for (;;) {
+          if (document.getElementById('quietblock-cosmetic')) return performance.now() - started;
+          if (performance.now() - started >= timeoutMs) return null;
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
       }
 
-      const hidden = [...document.querySelectorAll('.adsbygoogle, .ad-banner, .advertisement, #ad')]
-        .filter((element) => getComputedStyle(element).display === 'none').length;
-      log.innerHTML += `<div class="${hidden === 4 ? 'ok' : 'blocked'}">${hidden} of 4 ad slots are hidden</div>`;
+      async function report() {
+        const injectedAfter = await waitForStyle();
+        const injected = document.getElementById('quietblock-cosmetic');
 
+        /* ---- 元素隐藏 ---- */
+        const probes = [...document.querySelectorAll('[data-probe]')];
+        const adProbes = probes.filter((element) => element.dataset.probe !== '正文');
+        let hiddenAds = 0;
+        line(`找到 ${probes.length} 个受检元素`);
+        for (const element of probes) {
+          const style = getComputedStyle(element);
+          const visible =
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            Number(style.opacity) !== 0 &&
+            element.getClientRects().length > 0;
+          if (!visible && element.dataset.probe !== '正文') hiddenAds++;
+          line(
+            `${visible ? '可见' : '已隐藏'}  ${element.dataset.probe.padEnd(20)} ` +
+              `display=${style.display} visibility=${style.visibility} ` +
+              `opacity=${style.opacity} rects=${element.getClientRects().length}`,
+            visible ? 'blocked' : 'ok',
+          );
+        }
+        line(
+          `${adProbes.length} 个广告位中隐藏了 ${hiddenAds} 个`,
+          hiddenAds === adProbes.length ? 'ok' : 'blocked',
+        );
+
+        /* ---- QuietBlock 注入的样式表 ---- */
+        if (!injected) {
+          line('等了 2.5 秒仍没有 #quietblock-cosmetic 样式表', 'blocked');
+          line('');
+          line('扩展在本页没有生效。请依次检查弹窗里的三项：', 'blocked');
+          line('  1. Block ads and trackers（全局开关）是否为开', 'blocked');
+          line('  2. Enabled on this site（站点开关）是否为开', 'blocked');
+          line('  3. 是否显示 Remove from whitelist（说明本站在白名单里）', 'blocked');
+          line('任一项处于关闭/放行状态，都会同时关掉拦截和隐藏。', 'blocked');
+        } else {
+          const rules = injected.sheet ? injected.sheet.cssRules.length : -1;
+          line(
+            `#quietblock-cosmetic 已注入（等了 ${injectedAfter.toFixed(0)} ms），含 ${rules} 条规则`,
+            rules > 0 ? 'ok' : 'blocked',
+          );
+          // 这些规则里有哪些真的命中了页面元素
+          const matched = [];
+          if (injected.sheet) {
+            for (const rule of injected.sheet.cssRules) {
+              if (!rule.selectorText) continue;
+              for (const selector of rule.selectorText.split(',')) {
+                try {
+                  if (document.querySelector(selector.trim())) matched.push(selector.trim());
+                } catch {}
+              }
+            }
+          }
+          line(
+            matched.length > 0
+              ? `命中本页元素的选择器（前 10 个）：${matched.slice(0, 10).join(', ')}`
+              : '注入的规则里没有命中本页元素的选择器',
+            matched.length > 0 ? 'ok' : 'blocked',
+          );
+        }
+
+        /* ---- 网络请求 ---- */
+        // performance.getEntriesByType 分不出「被拦」和「放行」：被 DNR 拦掉的
+        // 请求同样会产生 timing entry。改成真的发一次请求 —— 被拦会 reject，
+        // 放行会 resolve（这些域名都真实存在，所以放行时至少能建立连接）。
+        line('');
+        line('逐个请求广告域名（被拦 = 请求失败）：');
+        for (const host of adHosts) {
+          let outcome;
+          try {
+            await fetch(`https://${host}/quietblock-probe.gif`, { mode: 'no-cors', cache: 'no-store' });
+            outcome = ['到达了网络', 'blocked'];
+          } catch {
+            outcome = ['被拦截', 'ok'];
+          }
+          line(`  ${outcome[0].padEnd(10)} ${host}`, outcome[1]);
+        }
+      }
+
+      report();
+
+      /* ---- 两秒后插入的广告 ---- */
       setTimeout(() => {
         const late = document.createElement('div');
-        late.className = 'adsbygoogle slot';
-        late.textContent = 'late ad slot: .adsbygoogle';
+        late.className = 'ad-unit slot';
+        late.dataset.probe = '延迟注入';
+        late.textContent = '延迟广告位：.ad-unit';
         document.getElementById('late-slot').append(late);
+        const style = getComputedStyle(late);
+        const hidden = style.display === 'none' || late.getClientRects().length === 0;
+        line(
+          `两秒后注入的广告位：${hidden ? '已隐藏' : '仍然可见'} (display=${style.display})`,
+          hidden ? 'ok' : 'blocked',
+        );
       }, 2000);
     </script>
   </body>

@@ -145,6 +145,20 @@ input[type="text"] {
   border-radius: 6px;
 }
 
+/*
+ * The native dropdown arrow sits hard against the right border, and padding-right
+ * does not move it - only the text. So the arrow is drawn here instead, which
+ * also keeps it the same colour as the rest of the UI.
+ */
+select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%2362676f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+
 textarea {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -206,22 +220,43 @@ textarea {
   border-color: var(--accent);
 }
 
-.btn.small {
-  padding: 3px 8px;
-  font-size: 12px;
+/*
+ * The action cell holds one switch and up to three buttons. They are inline
+ * boxes inside a table cell, so the cell stays a table cell and the spacing and
+ * alignment come from the children rather than from flex - making the cell
+ * itself flex would take it out of the table's layout algorithm.
+ */
+.actions > * {
+  vertical-align: middle;
 }
 
+.actions > * + * {
+  margin-left: 6px;
+}
+
+.btn.small {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Same 24px outer height as .btn.small, so the row reads as one control strip. */
 .inline-switch {
   display: inline-flex;
-  margin-right: 8px;
+  align-items: center;
+  height: 24px;
+  vertical-align: middle;
   cursor: pointer;
 }
 
 .inline-switch input {
   appearance: none;
   position: relative;
+  flex: none;
   width: 32px;
-  height: 19px;
+  height: 22px;
   margin: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -245,7 +280,7 @@ textarea {
 }
 
 .inline-switch input:checked::after {
-  transform: translateX(13px);
+  transform: translateX(12px);
   background: #fff;
 }
 
@@ -254,6 +289,23 @@ textarea {
   margin: 4px 0 12px;
   border-collapse: collapse;
   font-size: 13px;
+}
+
+/*
+ * Column widths. Without them the list name is squeezed to a couple of
+ * characters per line, because the rules column, the date column and four
+ * buttons all want the space. Naming them here keeps the table readable at any
+ * panel width.
+ */
+.table th:nth-child(1),
+.table td:nth-child(1) {
+  width: 34%;
+  min-width: 180px;
+}
+
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  width: 24%;
 }
 
 .table th,
@@ -286,17 +338,23 @@ textarea {
   white-space: nowrap;
 }
 
+/*
+ * `word-break: break-all` split ordinary prose mid-word, which turned
+ * "A small, conservative list..." into one or two characters per line.
+ * `overflow-wrap: anywhere` only breaks where a normal break point does not
+ * exist, so long URLs still wrap but words stay whole.
+ */
 .list-title {
   display: block;
   font-weight: 550;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .list-meta {
   display: block;
   color: var(--text-muted);
   font-size: 12px;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .list-error {
