@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>QuietBlock test page</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #fff;
+        color: #1a1d23;
+      }
+      main { max-width: 720px; margin: 0 auto; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #62676f; }
+      .slot {
+        height: 90px;
+        margin: 12px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed #b3261e;
+        border-radius: 8px;
+        background: #fdecea;
+        font-weight: 600;
+      }
+      .content {
+        padding: 16px;
+        border: 1px solid #d9dce3;
+        border-radius: 8px;
+        background: #f4f5f7;
+      }
+      .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .log div { padding: 2px 0; }
+      .ok { color: #1a7f37; }
+      .blocked { color: #b3261e; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>QuietBlock test page</h1>
+      <p>
+        Serve this directory over HTTP (<code>python3 -m http.server</code>) and open it in the
+        browser. Content scripts only run on http(s) pages, so opening the file directly will not
+        test element hiding.
+      </p>
+
+      <h2>1. Ad slots that should be hidden</h2>
+      <p>These use class names that EasyList's generic cosmetic rules target.</p>
+      <div class="adsbygoogle slot">ad slot: .adsbygoogle</div>
+      <div class="ad-banner slot">ad slot: .ad-banner</div>
+      <div class="advertisement slot">ad slot: .advertisement</div>
+      <div id="ad" class="slot">ad slot: #ad</div>
+
+      <h2>2. Content that must survive</h2>
+      <div class="content">
+        <p>This paragraph must stay visible. If it disappears, a cosmetic rule is too broad.</p>
+      </div>
+
+      <h2>3. Requests that should be blocked</h2>
+      <p>
+        These point at advertising domains in the built-in starter list, so they should be blocked
+        even before EasyList finishes downloading.
+      </p>
+      <img src="https://doubleclick.net/ddm/pixel.gif" alt="" width="1" height="1" />
+      <img src="https://pagead2.googlesyndication.com/pagead/1x1.gif" alt="" width="1" height="1" />
+      <img src="https://adservice.google.com/adsid/integrator.js" alt="" width="1" height="1" />
+      <img src="https://cdn.taboola.com/static/pixel.gif" alt="" width="1" height="1" />
+      <img src="https://images.outbrain.com/pixel.gif" alt="" width="1" height="1" />
+      <script src="https://popads.net/pop.js"></script>
+
+      <h2>4. A first-party request that must not be blocked</h2>
+      <img src="./ok.png" alt="a local image" width="1" height="1" onerror="this.style.display='none'" />
+
+      <h2>5. An ad inserted after page load</h2>
+      <p>Injected by JavaScript two seconds later. A stylesheet keeps applying to new nodes, so it
+        should still be hidden without any mutation observer.</p>
+      <div id="late-slot"></div>
+
+      <h2>6. An advertising iframe</h2>
+      <iframe src="https://doubleclick.net/iframe.html" width="300" height="100" title="ad iframe"></iframe>
+
+      <h2>What happened</h2>
+      <div class="log" id="log"></div>
+    </main>
+
+    <script>
+      // Report which of the advertising requests actually failed, so the page
+      // itself confirms the result rather than relying on the devtools panel.
+      const log = document.getElementById('log');
+      const entries = performance.getEntriesByType('resource');
+      const adHosts = ['doubleclick.net', 'googlesyndication.com', 'taboola.com', 'outbrain.com', 'popads.net'];
+      const ads = entries.filter((entry) => adHosts.some((host) => entry.name.includes(host)));
+
+      if (ads.length === 0) {
+        log.innerHTML += '<div class="blocked">No advertising request reached the network - they were blocked before they started.</div>';
+      } else {
+        for (const entry of ads) {
+          log.innerHTML += `<div class="blocked">request made: ${entry.name}</div>`;
+        }
+      }
+
+      const hidden = [...document.querySelectorAll('.adsbygoogle, .ad-banner, .advertisement, #ad')]
+        .filter((element) => getComputedStyle(element).display === 'none').length;
+      log.innerHTML += `<div class="${hidden === 4 ? 'ok' : 'blocked'}">${hidden} of 4 ad slots are hidden</div>`;
+
+      setTimeout(() => {
+        const late = document.createElement('div');
+        late.className = 'adsbygoogle slot';
+        late.textContent = 'late ad slot: .adsbygoogle';
+        document.getElementById('late-slot').append(late);
+      }, 2000);
+    </script>
+  </body>
+</html>
