@@ -365,6 +365,26 @@ async function main() {
     const page = await openPage(`http://localhost:${port}/`);
     await sleep(2500);
 
+    // The popup asks for the tab's state on open. If the worker cannot resolve
+    // the host - for instance because it has only just started and has not
+    // learned the open tabs yet - the site card disappears from the popup and
+    // the switches look like they were ignored.
+    const tabIdForPage = await runInExtension(`
+      chrome.tabs.query({}).then(tabs => {
+        const tab = tabs.find(t => (t.url ?? '').startsWith('http://localhost:${port}/'));
+        return tab ? String(tab.id) : 'none';
+      })`);
+    const tabState = JSON.parse(
+      await runInExtension(
+        `chrome.runtime.sendMessage({type:'getState', tabId:${tabIdForPage}}).then(r => JSON.stringify(r.tab))`,
+      ),
+    );
+    check(
+      'the popup can resolve the current site',
+      tabState?.host === 'localhost' && tabState?.enabled === true,
+      JSON.stringify(tabState),
+    );
+
     const blocked = blockedUrlsFrom(page);
     check(
       'advertising request is blocked',
@@ -407,12 +427,18 @@ async function main() {
       })`);
     check('the test tab is visible to the extension', tabId !== 'none', tabId);
     if (tabId !== 'none') {
-      await runInExtension(`chrome.runtime.sendMessage({type:'setWhitelisted', tabId:${tabId}})`);
+      const whitelisted = await runInExtension(
+        `chrome.runtime.sendMessage({type:'setWhitelisted', tabId:${tabId}}).then(r => JSON.stringify(r))`,
+      );
+      check('whitelisting the site is acknowledged', JSON.parse(whitelisted)?.ok === true, whitelisted);
     }
     await sleep(1000);
 
+    // Drop anything still queued from the earlier page, so a late failure
+    // there cannot be mistaken for one on the whitelisted page.
+    blockedUrlsFrom();
     const allowedPage = await openPage(`http://localhost:${port}/`);
-    await sleep(2000);
+    await sleep(2500);
     const allowedBlocked = blockedUrlsFrom(allowedPage);
     check(
       'whitelisted site is not blocked',

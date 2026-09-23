@@ -29,6 +29,32 @@ export function tabHost(tabId: number): string | null {
   return tabHosts.get(tabId) ?? null;
 }
 
+/**
+ * The host a tab is showing, asking Chrome when the in-memory map does not
+ * know it yet.
+ *
+ * The map is only warm once a cold service-worker start has finished learning
+ * the open tabs, and a popup message can arrive before that. Without the
+ * fallback the worker answered "no site" and the popup's site card vanished,
+ * which looked like the switch had been ignored until the popup was reopened.
+ */
+export async function resolveTabHost(tabId: number | undefined): Promise<string | null> {
+  if (tabId === undefined || tabId < 0) return null;
+  const known = tabHosts.get(tabId);
+  if (known) return known;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const host = hostFromUrl(tab?.url);
+    if (host) {
+      tabHosts.set(tabId, host);
+      return host;
+    }
+  } catch {
+    // The tab is gone.
+  }
+  return null;
+}
+
 /** Host used to attribute a blocked request to a site. */
 export function hostForTab(tabId: number | undefined, initiator: string | undefined): string | null {
   if (tabId !== undefined && tabId >= 0) {
@@ -45,7 +71,7 @@ export function hostForTab(tabId: number | undefined, initiator: string | undefi
 export async function getTabState(tabId: number | undefined): Promise<TabState | null> {
   const state = await loadState();
   const session = await loadSessionState();
-  const host = tabId !== undefined ? tabHosts.get(tabId) : undefined;
+  const host = (await resolveTabHost(tabId)) ?? undefined;
   if (!host) return null;
 
   return {
@@ -60,7 +86,7 @@ export async function getTabState(tabId: number | undefined): Promise<TabState |
 export async function setSiteEnabled(tabId: number, enabled: boolean): Promise<void> {
   const session = await loadSessionState();
   const key = String(tabId);
-  const host = tabHosts.get(tabId) ?? '';
+  const host = (await resolveTabHost(tabId)) ?? '';
   if (enabled) {
     delete session.tempAllowTabs[key];
     await syncTempAllowRule(tabId, false);

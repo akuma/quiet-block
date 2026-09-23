@@ -102,6 +102,8 @@ export type RuntimeMessage =
   | { type: 'getState'; tabId?: number }
   | { type: 'setGlobalEnabled'; enabled: boolean }
   | { type: 'setSiteEnabled'; tabId: number; enabled: boolean }
+  // The three messages below answer with the state they just changed, so the
+  // popup can repaint from a single round trip.
   | { type: 'setWhitelisted'; tabId?: number }
   | { type: 'updateLists' }
   | { type: 'setSubscriptionEnabled'; id: string; enabled: boolean }

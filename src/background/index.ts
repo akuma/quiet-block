@@ -31,6 +31,7 @@ import {
   hostForTab,
   rememberTab,
   releaseTempAllow,
+  resolveTabHost,
   restoreTempAllows,
   setSiteEnabled,
 } from './tabs.ts';
@@ -60,7 +61,7 @@ async function ensureInstalled(force = false): Promise<void> {
   }
   const run = (async () => {
     const state = await loadState();
-    const signature = await computeSignature(state);
+    const signature = computeSignature(state);
     if (!force && state.installSignature === signature) return;
     await installRules();
   })();
@@ -150,17 +151,19 @@ async function handleMessage(message: RuntimeMessage, sender: chrome.runtime.Mes
         draft.settings.enabled = message.enabled;
       });
       await applyChanges();
-      return { ok: true };
+      return { ok: true, enabled: message.enabled };
     }
 
     case 'setSiteEnabled': {
+      // The new tab state is returned so the popup can repaint the site card
+      // from one round trip instead of asking again.
       await setSiteEnabled(message.tabId, message.enabled);
-      return { ok: true };
+      return { ok: true, tab: await getTabState(message.tabId) };
     }
 
     case 'setWhitelisted': {
       const tabId = message.tabId ?? senderTabId;
-      const host = tabId !== undefined ? hostForTab(tabId, undefined) : undefined;
+      const host = (await resolveTabHost(tabId)) ?? undefined;
       if (!host) return { ok: false, error: 'No site to change.' };
       const state = await loadState();
       const allowed = !isWhitelisted(host, state.whitelist);
@@ -172,7 +175,7 @@ async function handleMessage(message: RuntimeMessage, sender: chrome.runtime.Mes
         await setSiteEnabled(tabId, true);
       }
       await applyChanges();
-      return { ok: true, host, allowed };
+      return { ok: true, host, allowed, tab: await getTabState(tabId) };
     }
 
     case 'updateLists': {

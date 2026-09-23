@@ -5,7 +5,7 @@
  * message; the popup holds no state of its own beyond what is on screen.
  */
 
-import type { StateResponse } from '../shared/types.ts';
+import type { StateResponse, TabState } from '../shared/types.ts';
 
 type Response<T> = T | { ok: false; error: string };
 
@@ -66,6 +66,28 @@ function formatRelative(timestamp: number): string {
   return `${Math.round(hours / 24)} d ago`;
 }
 
+/** Repaints just the site card, from a tab state. */
+function renderSite(tab: TabState | null, globalEnabled: boolean): void {
+  const hasSite = Boolean(tab?.host);
+  elements.siteCard.hidden = !hasSite;
+  if (!tab) return;
+
+  elements.siteHost.textContent = tab.host;
+  elements.siteToggle.checked = tab.enabled && !tab.whitelisted && !tab.tempAllowed;
+  elements.siteToggle.disabled = !globalEnabled;
+
+  if (tab.whitelisted) {
+    elements.whitelistButton.textContent = 'Remove from whitelist';
+    elements.siteHint.textContent = 'This site is permanently allowed: nothing is blocked or hidden.';
+  } else if (tab.tempAllowed) {
+    elements.whitelistButton.textContent = 'Allow permanently';
+    elements.siteHint.textContent = 'Paused for this tab until it closes.';
+  } else {
+    elements.whitelistButton.textContent = 'Allow permanently';
+    elements.siteHint.textContent = '';
+  }
+}
+
 function render(state: StateResponse): void {
   elements.globalToggle.checked = state.settings.enabled;
 
@@ -82,27 +104,10 @@ function render(state: StateResponse): void {
     elements.listStatus.classList.remove('error');
   }
 
-  const tab = state.tab;
-  const hasSite = Boolean(tab?.host);
-  elements.siteCard.hidden = !hasSite;
-  if (tab) {
-    elements.siteHost.textContent = tab.host;
-    elements.siteToggle.checked = tab.enabled && !tab.whitelisted && !tab.tempAllowed;
-    elements.siteToggle.disabled = !state.settings.enabled;
-
-    if (tab.whitelisted) {
-      elements.whitelistButton.textContent = 'Remove from whitelist';
-      elements.siteHint.textContent = 'This site is permanently allowed: nothing is blocked or hidden.';
-    } else if (tab.tempAllowed) {
-      elements.whitelistButton.textContent = 'Allow permanently';
-      elements.siteHint.textContent = 'Paused for this tab until it closes.';
-    } else {
-      elements.whitelistButton.textContent = 'Allow permanently';
-      elements.siteHint.textContent = '';
-    }
-  }
-
-  elements.todaySite.textContent = String(tab ? (state.stats.todayBySite[tab.host] ?? 0) : 0);
+  renderSite(state.tab, state.settings.enabled);
+  elements.todaySite.textContent = String(
+    state.tab ? (state.stats.todayBySite[state.tab.host] ?? 0) : 0,
+  );
   elements.todayTotal.textContent = String(state.stats.todayTotal);
 }
 
@@ -114,66 +119,100 @@ async function refresh(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  /**
+   * Every control repaints from the state the background sends back with its
+   * acknowledgement, so a click shows its result in one round trip. Without
+   * this the popup had to ask again - and while it waited, the switch looked
+   * like it had been ignored.
+   */
+  const withPending = async <T,>(
+    control: HTMLInputElement | HTMLButtonElement,
+    pendingLabel: string,
+    action: () => Promise<T>,
+    apply: (result: T) => void,
+  ): Promise<void> => {
+    const originalLabel = control.textContent;
+    control.disabled = true;
+    if (control.tagName === 'BUTTON') control.textContent = pendingLabel;
+    try {
+      apply(await action());
+    } catch (error) {
+      showStatus(error instanceof Error ? error.message : String(error), true, true);
+    } finally {
+      control.disabled = false;
+      if (control.tagName === 'BUTTON') control.textContent = originalLabel;
+    }
+  };
+
   elements.globalToggle.addEventListener('change', () => {
-    void (async () => {
-      try {
-        await sendMessage({ type: 'setGlobalEnabled', enabled: elements.globalToggle.checked });
-        await refresh();
-      } catch (error) {
-        showStatus(error instanceof Error ? error.message : String(error), true);
-      }
-    })();
+    void withPending(
+      elements.globalToggle,
+      '',
+      () => sendMessage<{ ok: true; enabled: boolean }>({
+        type: 'setGlobalEnabled',
+        enabled: elements.globalToggle.checked,
+      }),
+      (result) => {
+        elements.siteToggle.disabled = !result.enabled;
+      },
+    );
   });
 
   elements.siteToggle.addEventListener('change', () => {
     if (currentTabId === undefined) return;
     const enabled = elements.siteToggle.checked;
-    void (async () => {
-      try {
-        await sendMessage({ type: 'setSiteEnabled', tabId: currentTabId, enabled });
-        await refresh();
-      } catch (error) {
-        showStatus(error instanceof Error ? error.message : String(error), true);
-      }
-    })();
+    void withPending(
+      elements.siteToggle,
+      '',
+      () =>
+        sendMessage<{ ok: true; tab: TabState | null }>({
+          type: 'setSiteEnabled',
+          tabId: currentTabId,
+          enabled,
+        }),
+      (result) => {
+        renderSite(result.tab, elements.globalToggle.checked);
+        showStatus(enabled ? 'Blocking resumed on this tab.' : 'Paused for this tab until it closes.');
+      },
+    );
   });
 
   elements.whitelistButton.addEventListener('click', () => {
-    void (async () => {
-      try {
-        const result = await sendMessage<{ host: string; allowed: boolean }>({
+    void withPending(
+      elements.whitelistButton,
+      'Working…',
+      () =>
+        sendMessage<{ ok: true; host: string; allowed: boolean; tab: TabState | null }>({
           type: 'setWhitelisted',
           tabId: currentTabId,
-        });
+        }),
+      (result) => {
+        renderSite(result.tab, elements.globalToggle.checked);
         showStatus(
           result.allowed ? `${result.host} is now allowed.` : `${result.host} is blocked again.`,
         );
-        await refresh();
-      } catch (error) {
-        showStatus(error instanceof Error ? error.message : String(error), true);
-      }
-    })();
+      },
+    );
   });
 
   elements.updateButton.addEventListener('click', () => {
-    elements.updateButton.disabled = true;
-    void (async () => {
-      try {
-        const result = await sendMessage<{
+    void withPending(
+      elements.updateButton,
+      'Updating…',
+      () =>
+        sendMessage<{
           summary: { updated: string[]; failed: Array<{ title: string; error: string }> };
-        }>({ type: 'updateLists' });
+        }>({ type: 'updateLists' }),
+      (result) => {
         if (result.summary.failed.length > 0) {
           showStatus(`Update failed: ${result.summary.failed[0]!.error}`, true, true);
         } else {
           showStatus(`Lists updated (${result.summary.updated.length}).`);
         }
-        await refresh();
-      } catch (error) {
-        showStatus(error instanceof Error ? error.message : String(error), true);
-      } finally {
-        elements.updateButton.disabled = false;
-      }
-    })();
+      },
+    );
+    // The counts and the "last updated" line only exist in the full state.
+    void refresh();
   });
 
   elements.optionsButton.addEventListener('click', () => {

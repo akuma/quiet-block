@@ -179,15 +179,33 @@ shows the top 10 sites per day. **Clear statistics** removes those keys.
 Steps 2 and 4 are independent: a site can be blocked without being hidden and
 vice versa, which is why both mechanisms exist.
 
+## Two things that only show up in a real browser
+
+**The tab→host map is not warm on a cold start.** The worker learns which host
+each tab is showing from `tabs.onUpdated` and from a `tabs.query` at start-up,
+but a popup message can arrive before that has finished. Answering "no site"
+made the popup's site card vanish, which reads as "my click did nothing" until
+the popup is reopened. `resolveTabHost()` therefore falls back to
+`chrome.tabs.get()` and caches the result, so the answer never depends on the
+map being warm.
+
+**The popup repaints from the acknowledgement, not from a second read.**
+`setSiteEnabled`, `setWhitelisted` and `setGlobalEnabled` answer with the state
+they just changed, and the popup repaints the site card from that. Before this,
+a single click cost three round trips plus a full re-render — including a
+statistics flush — and the switch could be re-derived from a state that had not
+settled yet.
+
 ## Error handling
 
 - **A list that fails to download** records `lastError` on the subscription.
   The toolbar icon shows a `!`, the popup names the failing list, and the
   options page shows the reason. Nothing is retried in a loop, nothing
   notifies, nothing opens a tab.
-- **A rule batch Chrome rejects** throws from `updateDynamicRules`, which is
-  atomic — the previous rule set stays in place. The error surfaces in the
-  popup/options response rather than failing silently.
+- **A rule batch Chrome rejects** is retried in halves until the offending rule
+  is isolated, so one bad line cannot leave the extension with no rules at all.
+  The count of skipped rules is recorded in `installError` and shown in the
+  popup and options page.
 - **IndexedDB unavailable** (private mode, quota) makes cosmetic hiding
   no-op rather than throwing; network blocking is unaffected.
 - **The worker being killed mid-flush** loses at most a couple of seconds of

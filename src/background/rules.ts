@@ -96,10 +96,10 @@ export async function getSubscriptionText(
 async function compileSubscription(
   subscription: Subscription,
   state: PersistedState,
-): Promise<CompiledList | null> {
+): Promise<{ compiled: CompiledList; hash: string } | null> {
   const source = await getSubscriptionText(subscription, state);
   if (!source) return null;
-  return (
+  const compiled =
     compiledCache.get(source.hash) ??
     cacheCompiled(
       source.hash,
@@ -107,8 +107,8 @@ async function compileSubscription(
         source: subscription.id,
         isCustom: subscription.kind === 'custom',
       }),
-    )
-  );
+    );
+  return { compiled, hash: source.hash };
 }
 
 /**
@@ -138,13 +138,32 @@ export function syncCustomSubscription(state: PersistedState): void {
   }
 }
 
+/**
+ * Hash input for the signature, without reading any list text.
+ *
+ * This runs on every cold start of the service worker, which is exactly when
+ * the popup's first message arrives. Reading a 2 MB filter list out of
+ * IndexedDB just to learn its hash made opening the popup feel sluggish, so
+ * the hash recorded when the list was last compiled is used instead.
+ *
+ * That stays correct: `installRules` only records a hash for a subscription
+ * whose text it actually found, so a list whose text has vanished reports
+ * `missing` and the signature changes, which forces a reinstall attempt.
+ */
+function subscriptionHash(subscription: Subscription, state: PersistedState): string {
+  if (subscription.kind === 'builtin') return hashText(STARTER_LIST);
+  if (subscription.kind === 'custom') {
+    return state.customRules.trim() ? hashText(state.customRules) : 'missing';
+  }
+  return subscription.contentHash ?? 'missing';
+}
+
 /** Signature of everything that influences the installed rule set. */
-export async function computeSignature(state: PersistedState): Promise<string> {
+export function computeSignature(state: PersistedState): string {
   const parts: string[] = [`enabled=${state.settings.enabled ? 1 : 0}`];
   for (const subscription of state.subscriptions) {
     if (!subscription.enabled) continue;
-    const source = await getSubscriptionText(subscription, state);
-    parts.push(`${subscription.id}:${source?.hash ?? 'missing'}`);
+    parts.push(`${subscription.id}:${subscriptionHash(subscription, state)}`);
   }
   return parts.join('|');
 }
@@ -231,7 +250,7 @@ async function installRulesUnserialised(): Promise<InstallReport> {
 
   if (!state.settings.enabled) {
     await removeAllRules(state);
-    const signature = await computeSignature(state);
+    const signature = computeSignature(state);
     await updateState((draft) => {
       draft.installSignature = signature;
       for (const subscription of draft.subscriptions) {
@@ -259,13 +278,17 @@ async function installRulesUnserialised(): Promise<InstallReport> {
   const ordered: CompactedRule[] = [];
   const perSubscriptionTotals = new Map<string, number>();
   const compiledBySubscription = new Map<string, CompiledList>();
+  const contentHashes = new Map<string, string>();
   for (const subscription of state.subscriptions) {
     if (!subscription.enabled) continue;
     const compiled = await compileSubscription(subscription, state);
     if (!compiled) continue;
-    compiledBySubscription.set(subscription.id, compiled);
-    perSubscriptionTotals.set(subscription.id, compiled.rules.length);
-    const sorted = [...compiled.rules].sort((a, b) => a.tier - b.tier || a.order - b.order);
+    compiledBySubscription.set(subscription.id, compiled.compiled);
+    contentHashes.set(subscription.id, compiled.hash);
+    perSubscriptionTotals.set(subscription.id, compiled.compiled.rules.length);
+    const sorted = [...compiled.compiled.rules].sort(
+      (a, b) => a.tier - b.tier || a.order - b.order,
+    );
     ordered.push(...compactCandidates(sorted).rules);
   }
 
@@ -343,7 +366,7 @@ async function installRulesUnserialised(): Promise<InstallReport> {
   }
   await putCosmeticRecord(bundle.version, bundle);
 
-  const signature = await computeSignature(state);
+  const signature = computeSignature(state);
   // Source rules that made it into the installed set, and those the budget
   // cut. A merged rule stands for as many source rules as it has domains.
   const installedSources = new Map<string, number>();
@@ -371,6 +394,9 @@ async function installRulesUnserialised(): Promise<InstallReport> {
       subscription.ruleCount = installedSources.get(subscription.id) ?? 0;
       subscription.droppedCount = droppedBySubscription[subscription.id] ?? 0;
       subscription.cosmeticCount = cosmeticCounts.get(subscription.id) ?? 0;
+      // Only recorded when the text was actually found, so a vanished list
+      // shows up as a signature change rather than a silent no-op.
+      subscription.contentHash = contentHashes.get(subscription.id);
     }
   });
 

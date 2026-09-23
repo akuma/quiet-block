@@ -107,6 +107,15 @@ body {
   cursor: default;
 }
 
+.switch input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.switch input:disabled::after {
+  background: var(--text-muted);
+}
+
 .switch-label {
   font-weight: 500;
 }
