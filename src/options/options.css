@@ -159,6 +159,21 @@ select {
   cursor: pointer;
 }
 
+/*
+ * Chrome draws a thick blue glow around a focused control, which is especially
+ * loud on the select now that it has appearance: none. A thin accent outline
+ * keeps the keyboard focus indicator without the glow.
+ */
+select:focus-visible,
+textarea:focus-visible,
+input[type="text"]:focus-visible,
+.btn:focus-visible,
+.inline-switch input:focus-visible,
+.switch input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 textarea {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -221,17 +236,16 @@ textarea {
 }
 
 /*
- * The action cell holds one switch and up to three buttons. They are inline
- * boxes inside a table cell, so the cell stays a table cell and the spacing and
- * alignment come from the children rather than from flex - making the cell
- * itself flex would take it out of the table's layout algorithm.
+ * One switch and up to three buttons. They sit in their own flex row inside the
+ * table cell, so they can wrap onto a second line when the panel is narrow
+ * instead of spilling past its border.
  */
-.actions > * {
-  vertical-align: middle;
-}
-
-.actions > * + * {
-  margin-left: 6px;
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .btn.small {
@@ -299,13 +313,21 @@ textarea {
  */
 .table th:nth-child(1),
 .table td:nth-child(1) {
-  width: 34%;
-  min-width: 180px;
+  width: 32%;
 }
 
 .table th:nth-child(2),
 .table td:nth-child(2) {
-  width: 24%;
+  width: 22%;
+}
+
+/*
+ * The rules cell carries several lines of prose, which has to be allowed to
+ * wrap: `.num` sets nowrap for the date and statistics columns, and inheriting
+ * that here is what made the table wider than the panel.
+ */
+.table .num .list-meta {
+  white-space: normal;
 }
 
 .table th,

@@ -119,6 +119,11 @@ function renderSubscriptions(): void {
 
     const actions = document.createElement('td');
     actions.className = 'actions';
+    // The controls live in their own flex row: the cell itself has to stay a
+    // table cell, and this row is what lets them wrap onto a second line when
+    // the panel is narrow instead of spilling past its border.
+    const actionRow = document.createElement('div');
+    actionRow.className = 'action-row';
 
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
@@ -136,9 +141,9 @@ function renderSubscriptions(): void {
     const toggleLabel = document.createElement('label');
     toggleLabel.className = 'inline-switch';
     toggleLabel.append(toggle);
-    actions.append(toggleLabel);
+    actionRow.append(toggleLabel);
 
-    actions.append(
+    actionRow.append(
       iconButton('↑', 'Move up', () => {
         void run(async () => {
           await sendMessage({ type: 'moveSubscription', id: subscription.id, direction: -1 });
@@ -152,7 +157,7 @@ function renderSubscriptions(): void {
     );
 
     if (subscription.kind === 'remote') {
-      actions.append(
+      actionRow.append(
         iconButton('Update', 'Update this list now', () => {
           void run(async () => {
             await sendMessage({ type: 'updateLists' });
@@ -161,7 +166,7 @@ function renderSubscriptions(): void {
       );
     }
     if (subscription.kind !== 'builtin' && subscription.kind !== 'custom') {
-      actions.append(
+      actionRow.append(
         iconButton('Remove', `Remove ${subscription.title}`, () => {
           void run(async () => {
             await sendMessage({ type: 'removeSubscription', id: subscription.id });
@@ -170,6 +175,7 @@ function renderSubscriptions(): void {
       );
     }
 
+    actions.append(actionRow);
     row.append(title, rules, updated, actions);
     elements.rows.append(row);
   }
