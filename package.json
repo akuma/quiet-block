@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "QuietBlock - a quiet personal ad blocker for Chrome (MV3). No telemetry, no promotions, no upsell pages.",
   "license": "MIT",
+  "author": "Akuma Huang",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "scripts": {
