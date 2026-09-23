@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>QuietBlock</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <img class="logo" src="../icons/icon32.png" alt="" width="20" height="20" />
+      <h1>QuietBlock</h1>
+    </header>
+
+    <section class="block">
+      <label class="switch">
+        <input type="checkbox" id="global-toggle" />
+        <span class="switch-label">Block ads and trackers</span>
+      </label>
+    </section>
+
+    <section class="block card" id="site-card">
+      <div class="site-host" id="site-host">—</div>
+
+      <label class="switch">
+        <input type="checkbox" id="site-toggle" />
+        <span class="switch-label">Enabled on this site</span>
+      </label>
+
+      <div class="button-row">
+        <button type="button" class="btn" id="whitelist-button">Allow permanently</button>
+      </div>
+      <p class="hint" id="site-hint"></p>
+    </section>
+
+    <section class="stats">
+      <div class="stat">
+        <strong id="today-site">0</strong>
+        <span>blocked here today</span>
+      </div>
+      <div class="stat">
+        <strong id="today-total">0</strong>
+        <span>blocked today</span>
+      </div>
+    </section>
+
+    <p class="hint" id="list-status"></p>
+
+    <footer class="actions">
+      <button type="button" class="btn" id="update-button">Update lists</button>
+      <button type="button" class="btn" id="options-button">Options</button>
+    </footer>
+
+    <p class="status" id="status" role="status" hidden></p>
+
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

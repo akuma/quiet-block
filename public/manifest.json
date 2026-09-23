@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "QuietBlock",
+  "version": "1.0.0",
+  "description": "A quiet personal ad blocker. Local filter lists, cosmetic hiding, per-site whitelist. No telemetry, no promotions.",
+  "minimum_chrome_version": "120",
+  "author": "QuietBlock contributors",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://easylist.to/*",
+    "*://*.easylist.to/*",
+    "*://easylist-downloads.adblockplus.org/*",
+    "*://*.easylist-downloads.adblockplus.org/*",
+    "*://secure.fanboy.co.nz/*",
+    "*://*.secure.fanboy.co.nz/*",
+    "*://raw.githubusercontent.com/*"
+  ],
+  "optional_host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["cosmetic.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "action": {
+    "default_title": "QuietBlock",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

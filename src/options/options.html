@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>QuietBlock options</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <img class="logo" src="../icons/icon48.png" alt="" width="28" height="28" />
+        <div>
+          <h1>QuietBlock</h1>
+          <p class="tagline">Filter lists, whitelist and statistics. Everything stays on this device.</p>
+        </div>
+      </header>
+
+      <!-- ---------------------------- general ---------------------------- -->
+      <section class="panel">
+        <h2>General</h2>
+        <label class="switch">
+          <input type="checkbox" id="global-toggle" />
+          <span class="switch-label">Block ads and trackers</span>
+        </label>
+
+        <div class="field">
+          <label for="update-interval">Update filter lists</label>
+          <select id="update-interval">
+            <option value="0">Manually only</option>
+            <option value="6">Every 6 hours</option>
+            <option value="12">Every 12 hours</option>
+            <option value="24">Every 24 hours</option>
+            <option value="168">Every 7 days</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Whitelisted sites</label>
+          <p class="hint" id="whitelist-summary">No sites are permanently allowed.</p>
+        </div>
+      </section>
+
+      <!-- ------------------------- subscriptions ------------------------- -->
+      <section class="panel">
+        <h2>Filter lists</h2>
+        <p class="hint">
+          Lists are compiled into Chrome's request-blocking rules. Rules are shared out by
+          proportion, so enabling another list never silently starves it.
+        </p>
+        <p class="hint" id="budget-note"></p>
+
+        <table class="table" id="subscriptions">
+          <thead>
+            <tr>
+              <th scope="col">List</th>
+              <th scope="col">Rules</th>
+              <th scope="col">Updated</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="subscription-rows"></tbody>
+        </table>
+
+        <form class="add-form" id="add-form">
+          <input
+            type="text"
+            id="add-url"
+            placeholder="https://example.com/list.txt"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="btn primary">Add list</button>
+        </form>
+        <p class="hint" id="add-hint"></p>
+      </section>
+
+      <!-- -------------------------- custom rules ------------------------- -->
+      <section class="panel">
+        <h2>Custom rules</h2>
+        <p class="hint">
+          One rule per line. Lines starting with <code>!</code> are comments. Network rules such as
+          <code>||ads.example.com^</code> and element hiding such as <code>example.com##.banner</code>{' '}
+          are supported.
+        </p>
+        <textarea id="custom-rules" rows="9" spellcheck="false" placeholder="! my rules"></textarea>
+        <div class="button-row">
+          <button type="button" class="btn primary" id="save-rules">Save rules</button>
+          <button type="button" class="btn" id="import-rules">Import&hellip;</button>
+          <button type="button" class="btn" id="export-rules">Export</button>
+        </div>
+        <textarea id="import-area" rows="9" spellcheck="false" hidden></textarea>
+        <p class="hint" id="rules-hint"></p>
+      </section>
+
+      <!-- ---------------------------- statistics ------------------------- -->
+      <section class="panel">
+        <h2>Statistics</h2>
+        <label class="switch">
+          <input type="checkbox" id="stats-toggle" />
+          <span class="switch-label">Count blocked requests</span>
+        </label>
+        <p class="hint" id="stats-note">
+          Counts come from Chrome's rule-match debug event, which is only dispatched to unpacked
+          extensions. They are stored locally and never leave this device.
+        </p>
+        <table class="table" id="stats-table">
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              <th scope="col">Blocked</th>
+              <th scope="col">Top sites</th>
+            </tr>
+          </thead>
+          <tbody id="stats-rows"></tbody>
+        </table>
+
+        <div class="button-row">
+          <button type="button" class="btn" id="clear-stats">Clear statistics</button>
+        </div>
+      </section>
+
+      <!-- ------------------------------- about --------------------------- -->
+      <section class="panel">
+        <h2>About</h2>
+        <p>
+          QuietBlock is a personal ad blocker. It blocks advertising and tracking requests with
+          Chrome's <code>declarativeNetRequest</code> API, hides advertising elements with a
+          stylesheet injected before the page renders, and keeps its filter lists on your machine.
+        </p>
+        <p class="hint">
+          No telemetry, no analytics, no promotional pages, no donation prompts. The extension never
+          opens a tab on its own.
+        </p>
+        <p class="hint">
+          Version <span id="version"></span> &middot; Filter-list syntax follows the Adblock Plus
+          conventions. EasyList and EasyPrivacy are third-party lists,
+          <a href="https://easylist.to/" target="_blank" rel="noreferrer">licensed under CC BY-SA 3.0</a>.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>
