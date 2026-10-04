@@ -223,7 +223,16 @@ export function selectorsForHost(bundle: CosmeticBundle, host: string): string[]
     for (const selector of specificAllow) allowed.add(selector);
   }
 
-  if (Object.keys(bundle.specific).length > 0 || bundle.complex.length > 0) {
+  // Subdomain matching for both domain maps. The guard covers `specificAllow`
+  // as well as `specific`: a bundle whose only site-specific rules are
+  // exceptions (a list that un-hides something on a domain, or a user who
+  // typed nothing but `#@#` rules) still has to match subdomains, or the
+  // exception silently stops applying the moment the host has a `www.`.
+  if (
+    Object.keys(bundle.specific).length > 0 ||
+    Object.keys(bundle.specificAllow).length > 0 ||
+    bundle.complex.length > 0
+  ) {
     for (const domain of Object.keys(bundle.specific)) {
       if (domainMatches(host, domain)) {
         for (const selector of bundle.specific[domain]) selected.add(selector);

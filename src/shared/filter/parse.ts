@@ -147,11 +147,20 @@ function findCosmeticSeparator(line: string): { index: number; separator: string
   return best;
 }
 
-/** Splits an adblock `domain=` value into included and excluded hosts. */
+/**
+ * Splits an adblock domain list into included and excluded hosts.
+ *
+ * Two separator styles exist in the wild and both are accepted here: network
+ * rules spell their `domain=` option with `|` (`domain=news.com|~shop.news.com`),
+ * while cosmetic rules list their domains with `,`
+ * (`ads.google.com,youtube.com#@#.video-ads`). Only commas reach this function
+ * from the network path, because `$` options are comma-separated there, so the
+ * cosmetic path is the one that depends on splitting them apart.
+ */
 export function parseDomainList(value: string): { domains: string[]; excluded: string[] } {
   const domains: string[] = [];
   const excluded: string[] = [];
-  for (const raw of value.split('|')) {
+  for (const raw of value.split(/[|,]/)) {
     const entry = raw.trim().toLowerCase();
     if (!entry) continue;
     if (entry.startsWith('~')) {

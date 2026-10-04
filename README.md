@@ -69,6 +69,12 @@ The syntax follows Adblock Plus conventions:
 
 ! Hide an element on one site
 news.example.com##.leaderboard
+
+! Hide on several sites at once - cosmetic domains are comma-separated
+news.example.com,example.org##.leaderboard
+
+! Never hide an element - the cosmetic exception
+news.example.com#@#.leaderboard
 ```
 
 Rules take effect as soon as you press **Save rules**; no page reload is
@@ -181,11 +187,17 @@ Run through this after loading a fresh build:
    "Updated" column changes. Disconnect the network and update again: a red
    `!` appears on the toolbar icon and the popup says which list failed. No tab
    is opened and nothing pops up.
-8. **Nothing is ever opened on its own.** After installing and after updating
+8. **YouTube's Skip button survives.** Play a video that starts with an ad:
+   the ad runs and the Skip button (and the rest of the ad controls) appears.
+   EasyList hides the class `video-ads` everywhere, but un-hides it on
+   `youtube.com` and `ads.google.com`, because that class is the container the
+   skip button is rendered into. If the button is missing, the exception is
+   not matching.
+9. **Nothing is ever opened on its own.** After installing and after updating
    the lists, confirm that no new tab, window or notification appeared.
-9. **`bun run check:quiet` passes.** It greps the built bundle for
-   `tabs.create`, telemetry endpoints, store links, donation and rating copy,
-   and any host that is not a configured filter-list source.
+10. **`bun run check:quiet` passes.** It greps the built bundle for
+    `tabs.create`, telemetry endpoints, store links, donation and rating copy,
+    and any host that is not a configured filter-list source.
 
 ## Out of scope
 

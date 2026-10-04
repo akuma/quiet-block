@@ -93,6 +93,26 @@ test('does not treat a dollar sign inside a selector as an option separator', ()
   assert.equal(line.selector, 'a[href$=".png"]');
 });
 
+test('splits comma-separated cosmetic domain lists', () => {
+  // Cosmetic rules list their domains with commas, unlike the `domain=`
+  // option of network rules, which uses pipes.
+  const hide = parseLine('a.com,b.com##.ad');
+  assert.deepEqual(hide.domains, ['a.com', 'b.com']);
+
+  const exception = parseLine('ads.google.com,youtube.com#@#.video-ads');
+  assert.equal(exception.exception, true);
+  assert.deepEqual(exception.domains, ['ads.google.com', 'youtube.com']);
+
+  const excluded = parseLine('a.com,~b.com##.ad');
+  assert.deepEqual(excluded.domains, ['a.com']);
+  assert.deepEqual(excluded.excludedDomains, ['b.com']);
+
+  // Pipes keep working: some lists spell cosmetic domain lists that way.
+  const piped = parseLine('a.com|~b.com##.ad');
+  assert.deepEqual(piped.domains, ['a.com']);
+  assert.deepEqual(piped.excludedDomains, ['b.com']);
+});
+
 test('rejects malformed selectors', () => {
   assert.equal(isValidSelector(''), false);
   assert.equal(isValidSelector('a[href="unclosed'), false);
@@ -205,6 +225,32 @@ test('site-specific exceptions beat generic hides', () => {
   compileCosmetic([parseLine('##.ad'), parseLine('news.com#@#.ad')], bundle);
   assert.deepEqual(selectorsForHost(bundle, 'news.com'), []);
   assert.deepEqual(selectorsForHost(bundle, 'other.com'), ['.ad']);
+});
+
+test('multi-domain cosmetic exceptions match every listed domain', () => {
+  // The real EasyList pair. `.video-ads` is hidden generically, and the
+  // exception below un-hides it on YouTube, where that class is the root
+  // container of the instream ad UI - the element the Skip Ad button is
+  // rendered into. Parsing the comma as part of one giant domain name made
+  // the exception silently never match, so the container, and with it the
+  // skip button, was hidden on every YouTube page.
+  const bundle = emptyBundle();
+  compileCosmetic(
+    [parseLine('##.video-ads'), parseLine('ads.google.com,youtube.com#@#.video-ads')],
+    bundle,
+  );
+  for (const host of ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'ads.google.com']) {
+    assert.deepEqual(selectorsForHost(bundle, host), [], `expected ${host} to keep .video-ads`);
+  }
+  assert.deepEqual(selectorsForHost(bundle, 'videos.example'), ['.video-ads']);
+});
+
+test('multi-domain cosmetic hides match every listed domain', () => {
+  const bundle = emptyBundle();
+  compileCosmetic([parseLine('a.com,b.com##.ad')], bundle);
+  assert.deepEqual(selectorsForHost(bundle, 'a.com'), ['.ad']);
+  assert.deepEqual(selectorsForHost(bundle, 'www.b.com'), ['.ad']);
+  assert.deepEqual(selectorsForHost(bundle, 'c.com'), []);
 });
 
 test('domain exclusions are honoured', () => {
